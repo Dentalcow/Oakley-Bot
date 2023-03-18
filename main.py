@@ -4,6 +4,9 @@ import json
 import random
 import disnake
 from disnake.ext import commands
+from dotenv import load_dotenv
+
+load_dotenv()
 
 intents = disnake.Intents.all()
 
@@ -95,4 +98,4 @@ async def start(ctx):
     await ctx.send(results)
 
 # start the bot
-bot.run('MTA4NTMzOTY5NTc0NTA3NzI1NQ.GreLia.O_sLNkstBZNHdW8dOAyk5K_DpnNKyNmMG8QSo0')
+bot.run(os.getenv('TOKEN'))
