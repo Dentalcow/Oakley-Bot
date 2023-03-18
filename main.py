@@ -42,10 +42,13 @@ async def join(ctx):
 @bot.slash_command(name='list_players')
 async def list_players(ctx):
     global players
-    player_list = "Players:\n"
-    for i, player in players.items():
-        player_list += f"{i}. {player.display_name}\n"
-    await ctx.send(player_list)
+    if(len(players) == 0):
+        await ctx.send('No Players')
+    else:
+        player_list = "Players:\n"
+        for i, player in players.items():
+            player_list += f"{i}. {player.display_name}\n"
+        await ctx.send(player_list)
 
 # start command for the host to start the game
 @bot.slash_command(name='start')
