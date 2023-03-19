@@ -68,28 +68,6 @@ async def become_host(ctx):
     else:
         await ctx.send("Sorry, the host role is already assigned to someone else.")
 
-
-@bot.slash_command(name='end_game')
-@commands.has_role('Host')  # Require user to have "Host" role to run this command
-async def end(ctx):
-    global host
-    global players
-    global answers
-
-    # Remove Host role from current host
-    await host.remove_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
-
-    # Kick all players
-    for player in players.values():
-        await player.kick(reason="Game ended by host.")
-
-    # Reset global variables
-    host = None
-    players = {}
-    answers = {}
-
-    await ctx.send("Game ended. All players have been kicked.")
-
 @bot.slash_command(name='end_game')
 @commands.has_role('Host')  # Require user to have "Host" role to run this command
 async def end(ctx):
