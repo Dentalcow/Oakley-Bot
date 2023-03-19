@@ -69,7 +69,7 @@ async def become_host(ctx):
         await ctx.send("Sorry, the host role is already assigned to someone else.")
 
 
-@bot.slash_command(name='end')
+@bot.slash_command(name='end_game')
 @commands.has_role('Host')  # Require user to have "Host" role to run this command
 async def end(ctx):
     global host
