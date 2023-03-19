@@ -18,9 +18,10 @@ host = None
 players = {}
 answers = {}
 
+
 # question command for host user to generate questions
 @bot.slash_command(name='question')
-@commands.has_role('Host') # Require user to have "Host" role to run this command
+@commands.has_role('Host')  # Require user to have "Host" role to run this command
 async def question(ctx, question_text: str, *options):
     global questions
     global host
@@ -31,24 +32,50 @@ async def question(ctx, question_text: str, *options):
     host = ctx.author
     await ctx.send(f"Question added: {question_text} ({', '.join(options)})")
 
+
 # join command for players to join the game
 @bot.slash_command(name='join')
 async def join(ctx):
     global players
-    if ctx.author not in players.values():
-        players[len(players)+1] = ctx.author
+    if ctx.author not in players.values() or ctx.author is not host:
+        players[len(players) + 1] = ctx.author
         await ctx.send(f"{ctx.author.mention} joined the game.")
+
+
+# command to check if the host variable matches the host in discord
+@bot.slash_command(name='check_host')
+async def check_host(ctx):
+    global host
+    if host is not None:
+        # check if the host variable matches host in discord and if not change the host to be the same as local variable
+        host_role = disnake.utils.get(ctx.guild.roles, name='Host')
+        if host_role.members:
+            if host_role.members[0] != host:
+                await host.remove_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
+                await host_role.members[0].add_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
+                host = host_role.members[0]
+                await ctx.send(f"{host.display_name} is now the host.")
+            else:
+                await ctx.send(f"{host.display_name} is the host.")
+    else:
+        # check if somebody has the host role in discord and remove it
+        host_role = disnake.utils.get(ctx.guild.roles, name='Host')
+        if host_role.members:
+            await host_role.members[0].remove_roles(host_role)
+        await ctx.send("No host.")
+
 
 @bot.slash_command(name='list_players')
 async def list_players(ctx):
     global players
-    if(len(players) == 0):
+    if (len(players) == 0):
         await ctx.send('No Players')
     else:
         player_list = "Players:\n"
         for i, player in players.items():
             player_list += f"{i}. {player.display_name}\n"
         await ctx.send(player_list)
+
 
 @bot.slash_command(name='become_host')
 async def become_host(ctx):
@@ -67,6 +94,7 @@ async def become_host(ctx):
         await ctx.send(f"{ctx.author.mention} is now the host!")
     else:
         await ctx.send("Sorry, the host role is already assigned to someone else.")
+
 
 @bot.slash_command(name='end_game')
 @commands.has_role('Host')  # Require user to have "Host" role to run this command
@@ -92,7 +120,7 @@ async def end(ctx):
 
 # start command for the host to start the game
 @bot.slash_command(name='start')
-@commands.has_role('Host') # Require user to have "Host" role to run this command
+@commands.has_role('Host')  # Require user to have "Host" role to run this command
 async def start(ctx):
     global questions
     global host
@@ -121,7 +149,7 @@ async def start(ctx):
         # ask question
         msg = f"**Question:** {question['question']}\n"
         for i in range(len(question['options'])):
-            msg += f"{i+1}. {question['options'][i]}\n"
+            msg += f"{i + 1}. {question['options'][i]}\n"
         msg += "\n*Type /answer <number> to choose your answer.*"
         await ctx.send(msg)
 
@@ -129,9 +157,11 @@ async def start(ctx):
         for player in players.values():
             if player not in answers:
                 def check(msg):
-                    return msg.author == player and msg.content.isdigit() and int(msg.content) <= len(question['options'])
+                    return msg.author == player and msg.content.isdigit() and int(msg.content) <= len(
+                        question['options'])
+
                 answer = await bot.wait_for('message', check=check)
-                answers[player] = question['options'][int(answer.content)-1]
+                answers[player] = question['options'][int(answer.content) - 1]
                 await answer.add_reaction('✅')
 
     # display results
@@ -139,6 +169,7 @@ async def start(ctx):
     for player in players.values():
         results += f"{player.display_name}: {answers.get(player, 'No answer')}\n"
     await ctx.send(results)
+
 
 @bot.event
 async def on_disconnect():
@@ -148,6 +179,7 @@ async def on_disconnect():
         host_role = disnake.utils.get(host.guild.roles, name='Host')
         await host.remove_roles(host_role)
         host = None
+
 
 # start the bot
 bot.run(os.getenv('TOKEN'))
