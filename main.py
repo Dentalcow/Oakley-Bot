@@ -64,6 +64,7 @@ async def become_host(ctx):
     if not host_role.members:
         await ctx.author.add_roles(host_role)
         host = ctx.author
+        print("The host is now: " + host)
         await ctx.send(f"{ctx.author.mention} is now the host!")
     else:
         await ctx.send("Sorry, the host role is already assigned to someone else.")
@@ -139,6 +140,15 @@ async def start(ctx):
     for player in players.values():
         results += f"{player.display_name}: {answers.get(player, 'No answer')}\n"
     await ctx.send(results)
+
+@bot.event
+async def on_disconnect():
+    global host
+
+    if host is not None:
+        host_role = disnake.utils.get(host.guild.roles, name='Host')
+        await host.remove_roles(host_role)
+        host = None
 
 # start the bot
 bot.run(os.getenv('TOKEN'))
