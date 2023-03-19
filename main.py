@@ -50,6 +50,68 @@ async def list_players(ctx):
             player_list += f"{i}. {player.display_name}\n"
         await ctx.send(player_list)
 
+@bot.slash_command(name='become_host')
+async def become_host(ctx):
+    global host
+
+    # Check if the host role is already assigned
+    if any(role.name == 'Host' for role in ctx.author.roles):
+        await ctx.send(f"{ctx.author.mention}, you are already the host!")
+        return
+
+    # Check if the host role is empty and assign it to the user if it is
+    host_role = disnake.utils.get(ctx.guild.roles, name='Host')
+    if not host_role.members:
+        await ctx.author.add_roles(host_role)
+        host = ctx.author
+        await ctx.send(f"{ctx.author.mention} is now the host!")
+    else:
+        await ctx.send("Sorry, the host role is already assigned to someone else.")
+
+
+@bot.slash_command(name='end')
+@commands.has_role('Host')  # Require user to have "Host" role to run this command
+async def end(ctx):
+    global host
+    global players
+    global answers
+
+    # Remove Host role from current host
+    await host.remove_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
+
+    # Kick all players
+    for player in players.values():
+        await player.kick(reason="Game ended by host.")
+
+    # Reset global variables
+    host = None
+    players = {}
+    answers = {}
+
+    await ctx.send("Game ended. All players have been kicked.")
+
+@bot.slash_command(name='end_game')
+@commands.has_role('Host')  # Require user to have "Host" role to run this command
+async def end(ctx):
+    global host
+    global players
+    global answers
+
+    # Remove Host role from current host
+    await host.remove_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
+
+    # Kick all players
+    for player in players.values():
+        await player.kick(reason="Game ended by host.")
+
+    # Reset global variables
+    host = None
+    players = {}
+    answers = {}
+
+    await ctx.send("Game ended. All players have been kicked.")
+
+
 # start command for the host to start the game
 @bot.slash_command(name='start')
 @commands.has_role('Host') # Require user to have "Host" role to run this command
