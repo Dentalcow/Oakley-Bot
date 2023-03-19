@@ -64,7 +64,6 @@ async def become_host(ctx):
     if not host_role.members:
         await ctx.author.add_roles(host_role)
         host = ctx.author
-        print("The host is now: " + host)
         await ctx.send(f"{ctx.author.mention} is now the host!")
     else:
         await ctx.send("Sorry, the host role is already assigned to someone else.")
