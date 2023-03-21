@@ -22,7 +22,7 @@ answers = {}
 # question command for host user to generate questions
 @bot.slash_command(name='question')
 @commands.has_role('Host')  # Require user to have "Host" role to run this command
-async def question(ctx, question_text: str, *options):
+async def question(ctx, question_text: str, options):
     global questions
     global host
     questions.append({
@@ -33,11 +33,35 @@ async def question(ctx, question_text: str, *options):
     await ctx.send(f"Question added: {question_text} ({', '.join(options)})")
 
 
+@bot.slash_command(name='answer')
+async def answer(ctx, answer_number: int):
+    global players
+    global questions
+    global answers
+
+    if ctx.author not in players.values():
+        await ctx.send(f"{ctx.author.mention}, you're not a player in this game!")
+        return
+
+    if len(questions) == 0:
+        await ctx.send("No questions have been added yet.")
+        return
+
+    if answer_number < 1 or answer_number > len(questions[0]['options']):
+        await ctx.send(f"{ctx.author.mention}, please choose a number between 1 and {len(questions[0]['options'])}!")
+        return
+
+    player_number = list(players.keys())[list(players.values()).index(ctx.author)]
+    answers[player_number] = answer_number - 1
+    await ctx.send(f"{ctx.author.mention} chose option {answer_number}.")
+
+
 # join command for players to join the game
 @bot.slash_command(name='join')
 async def join(ctx):
     global players
-    if ctx.author not in players.values() or ctx.author is not host:
+    # make sure that the player is not already in the game or is the host
+    if ctx.author not in players.values() and ctx.author != host:
         players[len(players) + 1] = ctx.author
         await ctx.send(f"{ctx.author.mention} joined the game.")
 
@@ -66,6 +90,7 @@ async def check_host(ctx):
 
 
 @bot.slash_command(name='list_players')
+@commands.has_role('Host')
 async def list_players(ctx):
     global players
     if (len(players) == 0):
@@ -80,11 +105,15 @@ async def list_players(ctx):
 @bot.slash_command(name='become_host')
 async def become_host(ctx):
     global host
-
-    # Check if the host role is already assigned
+    host_role = disnake.utils.get(ctx.guild.roles, name='Host')
     if any(role.name == 'Host' for role in ctx.author.roles):
         await ctx.send(f"{ctx.author.mention}, you are already the host!")
         return
+
+    if host_role.members:
+        if host_role.members[0] != host:
+            await ctx.send(f"Error with host role. Please run /check_host command to re-align host role.")
+            return
 
     # Check if the host role is empty and assign it to the user if it is
     host_role = disnake.utils.get(ctx.guild.roles, name='Host')
@@ -103,9 +132,10 @@ async def end(ctx):
     global players
     global answers
 
-    # Remove Host role from current host
-    await host.remove_roles(ctx.guild.get_role(int(os.getenv('HOST_ROLE_ID'))))
+    host_role = disnake.utils.get(ctx.guild.roles, name='Host')
 
+    # Remove host role from host
+    await host.remove_roles(host_role)
     # Kick all players
     for player in players.values():
         await player.kick(reason="Game ended by host.")
@@ -121,7 +151,7 @@ async def end(ctx):
 # start command for the host to start the game
 @bot.slash_command(name='start')
 @commands.has_role('Host')  # Require user to have "Host" role to run this command
-async def start(ctx):
+async def start(ctx, defaults: bool = False):
     global questions
     global host
     global players
@@ -131,38 +161,47 @@ async def start(ctx):
         await ctx.send("Only the host can start the game.")
         return
 
-    if not questions:
+    if defaults:
+        # Create a dictionary of questions and options by sending a get request to
+        # https://the-trivia-api.com/api/questions
+        response = requests.get('https://the-trivia-api.com/api/questions', params={'amount': 10})
+        print(response.json().question)
+        print(response.json().correctAnswer)
+        print(response.json().incorrectAnswers)
+
+
+    elif not questions:
         await ctx.send("No questions have been added yet.")
         return
+    else:
+        # shuffle questions
+        random.shuffle(questions)
 
-    # shuffle questions
-    random.shuffle(questions)
+        # reset answers
+        answers = {}
 
-    # reset answers
-    answers = {}
+        # ask questions
+        for question in questions:
+            # shuffle options
+            random.shuffle(question['options'])
 
-    # ask questions
-    for question in questions:
-        # shuffle options
-        random.shuffle(question['options'])
+            # ask question
+            msg = f"**Question:** {question['question']}\n"
+            for i in range(len(question['options'])):
+                msg += f"{i + 1}. {question['options'][i]}\n"
+            msg += "\n*Type /answer <number> to choose your answer.*"
+            await ctx.send(msg)
 
-        # ask question
-        msg = f"**Question:** {question['question']}\n"
-        for i in range(len(question['options'])):
-            msg += f"{i + 1}. {question['options'][i]}\n"
-        msg += "\n*Type /answer <number> to choose your answer.*"
-        await ctx.send(msg)
+            # wait for answers
+            for player in players.values():
+                if player not in answers:
+                    def check(msg):
+                        return msg.author == player and msg.content.isdigit() and int(msg.content) <= len(
+                            question['options'])
 
-        # wait for answers
-        for player in players.values():
-            if player not in answers:
-                def check(msg):
-                    return msg.author == player and msg.content.isdigit() and int(msg.content) <= len(
-                        question['options'])
-
-                answer = await bot.wait_for('message', check=check)
-                answers[player] = question['options'][int(answer.content) - 1]
-                await answer.add_reaction('✅')
+                    answer = await bot.wait_for('message', check=check)
+                    answers[player] = question['options'][int(answer.content) - 1]
+                    await answer.add_reaction('✅')
 
     # display results
     results = "**Results:**\n"
